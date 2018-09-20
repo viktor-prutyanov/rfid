@@ -8,8 +8,6 @@ from time import sleep
 from threading import Timer
 import serial
 import time
-import signal
-import sys
 
 if len(sys.argv) != 3:
     exit("usage: {0} ip uart_nr".format(sys.argv[0]))
@@ -30,7 +28,7 @@ with open('labels.txt', 'r') as f:
     labels = f.readlines()
     for l in labels:
         p = l.split("\n")[0].split(" ")
-        products[p[1]] = [p[0], 0]
+        products[p[1]] = [p[0], 0, True]
 print(products)
 
 logging.getLogger().setLevel(logging.DEBUG)
@@ -50,17 +48,25 @@ def cb(tagReport):
         if 'EPC-96' in tags[0]:
             uid = tags[0]['EPC-96'].decode('ascii')
             products[uid][1] = time.time()
-            #print(products)
+            print(products)
 
 def sThread():
     while True:
         uid_str = s.readline().decode("ascii").replace(" ", "").rstrip("\n").rstrip("\r")
         if len(uid_str) != 0:
-            print(users[uid_str], uid_str)
-            print(products)
-            t = time.time()
-            for p in products:
-                print(p)
+            with open("order.txt", "w") as f:
+                print("---------")
+                print("User: ", users[uid_str])
+                f.write(users[uid_str] + "\n")
+                print("Products: [")
+                #print(products)
+                t = time.time()
+                for uid, p in products.items():
+                    if (t - p[1]) > 1.5 and p[2]:
+                        print(p[0])
+                        f.write(p[0] + "\n")
+                        p[2] = False
+                print("]")
 
 factory = llrp.LLRPClientFactory(report_every_n_tags=1, tx_power=20)
 factory.addTagReportCallback(cb)
